@@ -1,0 +1,101 @@
+#j'importe des éléments
+
+import requests
+from bs4 import BeautifulSoup
+import csv
+import os
+
+directory = "CSV"
+images_directory = "images"
+if not os.path.exists(directory):
+    os.mkdir(directory)
+if not os.path.exists(images_directory):
+    os.mkdir(images_directory)
+
+
+
+#Je fais une requête sur le site
+
+base_url ="http://books.toscrape.com/"
+response = requests.get(base_url)
+page = response.content
+
+#je scrape le site
+
+soup = BeautifulSoup(page,features="html.parser")
+repertoire = soup.select(".nav-list > li > ul li > a")# parent (nav-list) à petits enfants(a)  (ul li = tous les enfants li de ce ul) ("." nav-list = classe(notion CSS et # pour ID))
+
+
+
+#j'obtiens des catégories de livres que je vais stocker dans une liste
+
+repertoire = [a['href'] for a in repertoire]# url vers catégories. Pour chaque a dans repertoire je prends la propriété href de a.
+
+
+for category_url in repertoire:# Le slice signifie qu'on prend uniquement le second[:1]  # pour chaque catégorie du répertoire
+    response = requests.get(base_url+category_url) #(+ est comme append)                     # Je fais une requête vers la catégorie du répertoire
+    page = response.content                                                                  # Je récupère le contenu de la page
+    soup = BeautifulSoup(page,features="html.parser")  
+    
+    category_name = soup.select("h1")[0].getText()
+    print(category_name)
+                                          #j'extrais la catégorie
+    books_liste = soup.select("h3>a")                                                              # j'extrais la catégorie 
+    books_liste =[a["href"].replace("../../../","https://books.toscrape.com/catalogue/") for a in books_liste] # ici nous avons la vraie url
+    #print(books_liste[0])
+    
+    isfirstiteration = True
+    for url in books_liste:                                 #                                                                                          
+        response = requests.get(url)  
+        page = response.content 
+        
+                                                         
+        soup = BeautifulSoup(page,features="html.parser")                          
+        product_information = soup.select("th+td")
+        image = soup.select(".active > img")[0]
+
+        image_url = image["src"].replace("../../",base_url) # Attention à enlever les guillemets base_url est une variable
+        image_data = requests.get(image_url).content
+        image_filename = image["alt"][:10].replace(' ', '_')+".jpg"
+
+        product_information = [td.getText() for td in product_information]# Pour chaque td on veut juste le texte
+        product_information.append(image_filename)
+        with open("images/"+image_filename,"wb") as f:
+            f.write(image_data)
+
+            
+
+        print(product_information)
+
+        
+
+        liste_information = ["UPC","produit","prixht","prixat","taxe","disponibilités","nombredavis","image"]
+
+        # La "liste_information" est créé pour le futur fichier CSV
+        if isfirstiteration: 
+          isfirstiteration = False
+          with open("CSV/" + category_name + ".csv","a", newline ="") as fichiercsv:
+            writer = csv.writer(fichiercsv)
+            writer.writerow(liste_information) 
+                  
+
+        with open("CSV/" + category_name + ".csv","a", newline ="") as fichiercsv:
+          writer = csv.writer(fichiercsv) # writer permet d'écrire dans le fichier csv
+          writer.writerow(product_information)
+
+
+        
+    
+
+
+
+ 
+
+
+
+
+
+
+
+
+
